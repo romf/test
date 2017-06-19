@@ -2,6 +2,7 @@
 Author: Rosana Fagundes
 IDE: STS - Version: 3.8.4.RELEASE
 Version control: GIT - GitHub
+OS: Mac OS X - Darwin
 
 * Main challenge *
 I was not sure if I was supposed to use relationships or not so I used only one time as per the test note "each newsletter relates to a subscriber".
@@ -9,6 +10,7 @@ CategoryPaths calculation was the main challenge to check level per level, in re
 
 * Next Steps *
 I could create one more layer (Service layer) in order to abstract code from rest controllers. For the sake of time I decided to do the most straighfoward.
+Relationships to increase performance and best practices.
 
 * Feedback *
 Interesting exercise, with different levels of challenges and very complete in terms of evaluation. Many concepts tested and relevant subject.
