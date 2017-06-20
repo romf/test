@@ -1,7 +1,5 @@
 package com.test.springer.controllers;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -29,7 +27,8 @@ import com.test.springer.jpa.SubscriberRepository;
 @RestController
 public class SubscriberRestController {
 
-	private static LinkedHashMap<String, LinkedList<String>> lm;
+	private static LinkedHashMap<String, LinkedList<LinkedList<String>>> lm;
+	private static LinkedList<String> stack;
 
 	@RequestMapping(value = "/subscribers", method = RequestMethod.GET)
 	Collection<Subscriber> getSubscribers() {
@@ -61,7 +60,7 @@ public class SubscriberRestController {
 		// create subscriber
 		Subscriber newSubscriber = new Subscriber(email, String.join(",", categories));
 		subscriberRepository.save(newSubscriber);
-		lm = new LinkedHashMap<String, LinkedList<String>>();
+		lm = new LinkedHashMap<String, LinkedList<LinkedList<String>>>();
 
 		// create a newsletter
 		Newsletter newNewsletter = new Newsletter(newSubscriber.getEmail());
@@ -74,38 +73,38 @@ public class SubscriberRestController {
 
 	public void createNotifications(final Newsletter newsletter, final LinkedList<String> categories) {
 		for (String cat : categories) {
-			getCategoryPaths(cat, cat);
+			stack = new LinkedList<String>();
+			getCategoryPaths(cat);
 		}
 
-		for (Entry<String, LinkedList<String>> each : lm.entrySet()) {
-			LinkedList<String> categoryPaths = each.getValue();
-			List<List<String>> finalPaths = new ArrayList<List<String>>();
-			for (String path : categoryPaths) {
-				finalPaths.add(Arrays.asList(path.split(";")));
-				notificationRepository.save(new Notification(newsletter, each.getKey(), finalPaths.toString()));
-			}
+		System.out.println("LM NOW:");
+		System.out.println(lm);
+		for (Entry<String, LinkedList<LinkedList<String>>> each : lm.entrySet()) {
+			LinkedList<LinkedList<String>> categoryPaths = each.getValue();
+			notificationRepository.save(new Notification(newsletter, each.getKey(), categoryPaths.toString()));
 		}
 	}
 
-	public void getCategoryPaths(String currentCategoryCode, String element) {
+	public void getCategoryPaths(String currentCategoryCode) {
 		List<Book> books = bookRepository.findBookByCategoryCode("%" + currentCategoryCode + ",%",
 				"%," + currentCategoryCode + "%", currentCategoryCode);
-		
+
+		stack.add(currentCategoryCode);
+
 		if (books.size() > 0) {
 			for (Book b : books) {
 				if (!lm.containsKey(b.getTitle())) {
-					lm.put(b.getTitle(), new LinkedList<String>());
+					lm.put(b.getTitle(), new LinkedList<LinkedList<String>>());
 				}
-				LinkedList<String> ll = lm.get(b.getTitle());
-				ll.add(element);
+				LinkedList<LinkedList<String>> ll = lm.get(b.getTitle());
+				ll.add(stack);
 			}
 		}
 
 		List<Category> categories = categoryRepository.findCategoryBySuperCategory(currentCategoryCode);
 		for (Category cat : categories) {
 			currentCategoryCode = cat.getCode();
-			String newElement = element + ";" + currentCategoryCode;
-			getCategoryPaths(currentCategoryCode, newElement);
+			getCategoryPaths(currentCategoryCode);
 		}
 	}
 
