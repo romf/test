@@ -74,7 +74,7 @@ public class SubscriberRestController {
 	public void createNotifications(final Newsletter newsletter, final LinkedList<String> categories) {
 		for (String cat : categories) {
 			stack = new LinkedList<String>();
-			getCategoryPaths(cat);
+			getCategoryPaths(cat, 0, 0);
 		}
 
 		System.out.println("LM NOW:");
@@ -85,11 +85,12 @@ public class SubscriberRestController {
 		}
 	}
 
-	public void getCategoryPaths(String currentCategoryCode) {
+	public void getCategoryPaths(String currentCategoryCode, int level, int backLevel) {
 		List<Book> books = bookRepository.findBookByCategoryCode("%" + currentCategoryCode + ",%",
 				"%," + currentCategoryCode + "%", currentCategoryCode);
 
 		stack.add(currentCategoryCode);
+		level += 1;
 
 		if (books.size() > 0) {
 			for (Book b : books) {
@@ -97,14 +98,28 @@ public class SubscriberRestController {
 					lm.put(b.getTitle(), new LinkedList<LinkedList<String>>());
 				}
 				LinkedList<LinkedList<String>> ll = lm.get(b.getTitle());
-				ll.add(stack);
+				LinkedList<String> newll = new LinkedList<String>();
+				for (String stackEle : stack) {
+					newll.add(stackEle);
+				}
+				ll.add(newll);
 			}
 		}
 
 		List<Category> categories = categoryRepository.findCategoryBySuperCategory(currentCategoryCode);
+		if (categories.size() > 1) {
+			backLevel = level;
+		}
+		if (categories.size() == 0) {
+			int count = level;
+			while (count > backLevel) {
+				stack.removeLast();
+				count -= 1;
+			}
+		}
 		for (Category cat : categories) {
 			currentCategoryCode = cat.getCode();
-			getCategoryPaths(currentCategoryCode);
+			getCategoryPaths(currentCategoryCode, level, backLevel);
 		}
 	}
 
