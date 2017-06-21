@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.test.springer.jpa.Book;
 import com.test.springer.jpa.BookRepository;
 import com.test.springer.jpa.Category;
 import com.test.springer.jpa.CategoryRepository;
@@ -23,12 +22,11 @@ import com.test.springer.jpa.Notification;
 import com.test.springer.jpa.NotificationRepository;
 import com.test.springer.jpa.Subscriber;
 import com.test.springer.jpa.SubscriberRepository;
+import com.test.springer.utils.Node;
+import com.test.springer.utils.Tree;
 
 @RestController
 public class SubscriberRestController {
-
-	private static LinkedHashMap<String, LinkedList<LinkedList<String>>> lm;
-	private static LinkedList<String> stack;
 
 	@RequestMapping(value = "/subscribers", method = RequestMethod.GET)
 	Collection<Subscriber> getSubscribers() {
@@ -60,7 +58,6 @@ public class SubscriberRestController {
 		// create subscriber
 		Subscriber newSubscriber = new Subscriber(email, String.join(",", categories));
 		subscriberRepository.save(newSubscriber);
-		lm = new LinkedHashMap<String, LinkedList<LinkedList<String>>>();
 
 		// create a newsletter
 		Newsletter newNewsletter = new Newsletter(newSubscriber.getEmail());
@@ -71,55 +68,32 @@ public class SubscriberRestController {
 		return newSubscriber;
 	}
 
-	public void createNotifications(final Newsletter newsletter, final LinkedList<String> categories) {
-		for (String cat : categories) {
-			stack = new LinkedList<String>();
-			getCategoryPaths(cat, 0, 0);
-		}
+	// private static Node<String> root;
 
-		System.out.println("LM NOW:");
-		System.out.println(lm);
-		for (Entry<String, LinkedList<LinkedList<String>>> each : lm.entrySet()) {
-			LinkedList<LinkedList<String>> categoryPaths = each.getValue();
-			notificationRepository.save(new Notification(newsletter, each.getKey(), categoryPaths.toString()));
+	public void loadTree(String category, Node<String> root) {
+		List<Category> categoriesChild = categoryRepository.findCategoryBySuperCategory(category);
+		for (Category cat : categoriesChild) {
+			Node<String> child = new Node<String>(cat.getCode());
+			root.addChild(child);
+			loadTree(cat.getCode(), child);
 		}
 	}
 
-	public void getCategoryPaths(String currentCategoryCode, int level, int backLevel) {
-		List<Book> books = bookRepository.findBookByCategoryCode("%" + currentCategoryCode + ",%",
-				"%," + currentCategoryCode + "%", currentCategoryCode);
-
-		stack.add(currentCategoryCode);
-		level += 1;
-
-		if (books.size() > 0) {
-			for (Book b : books) {
-				if (!lm.containsKey(b.getTitle())) {
-					lm.put(b.getTitle(), new LinkedList<LinkedList<String>>());
-				}
-				LinkedList<LinkedList<String>> ll = lm.get(b.getTitle());
-				LinkedList<String> newll = new LinkedList<String>();
-				for (String stackEle : stack) {
-					newll.add(stackEle);
-				}
-				ll.add(newll);
+	public void createNotifications(final Newsletter newsletter, final LinkedList<String> categories) {
+		// load categories tree
+		for (String cat : categories) {
+			Node<String> root = new Node<String>(cat);
+			loadTree(cat, root);
+			Tree<String> tree = new Tree<String>(root);
+			tree.lm = new LinkedHashMap<String, LinkedList<LinkedList<String>>>();
+			tree.setBookRepository(bookRepository);
+			tree.getPathsFromRootToAnyLeaf();
+			System.out.println("LM NOW");
+			System.out.println(tree.lm);
+			for (Entry<String, LinkedList<LinkedList<String>>> each : tree.lm.entrySet()) {
+				LinkedList<LinkedList<String>> categoryPaths = each.getValue();
+				notificationRepository.save(new Notification(newsletter, each.getKey(), categoryPaths.toString()));
 			}
-		}
-
-		List<Category> categories = categoryRepository.findCategoryBySuperCategory(currentCategoryCode);
-		if (categories.size() > 1) {
-			backLevel = level;
-		}
-		if (categories.size() == 0) {
-			int count = level;
-			while (count > backLevel) {
-				stack.removeLast();
-				count -= 1;
-			}
-		}
-		for (Category cat : categories) {
-			currentCategoryCode = cat.getCode();
-			getCategoryPaths(currentCategoryCode, level, backLevel);
 		}
 	}
 
