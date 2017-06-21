@@ -1,4 +1,4 @@
-package src.main.java.com.test.springer.utils;
+package com.test.springer.utils;
 
 import java.util.ArrayList;
 import java.util.List;
